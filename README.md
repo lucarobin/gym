@@ -4,7 +4,7 @@ A simple phone app for logging meals, macros and workouts. It runs in the browse
 
 ## Open it
 
-**https://lucarobin.github.io/gym-tracker/**
+**https://lucarobin.github.io/gym/**
 
 Add it to your home screen:
 - **iPhone (Safari):** Share button → *Add to Home Screen*
