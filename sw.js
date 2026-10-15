@@ -1,6 +1,6 @@
 // Offline support: always try the network first so updates show up right away,
 // fall back to the cached copy when there's no connection.
-const CACHE = "gym-tracker-v2";
+const CACHE = "gym-tracker-v3";
 const FILES = ["./", "index.html", "styles.css", "data.js", "app.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {

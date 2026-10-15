@@ -59,7 +59,10 @@
 
   // ---------- Sheet ----------
   function openSheet(html, onMount) {
-    $("#sheetBody").innerHTML = html;
+    // Swap in a fresh element so tap handlers from the previous sheet don't pile up
+    const old = $("#sheetBody"), body = old.cloneNode(false);
+    old.replaceWith(body);
+    body.innerHTML = html;
     $("#sheet").classList.add("open"); $("#backdrop").classList.add("open");
     $("#sheet").scrollTop = 0;
     if (onMount) onMount($("#sheetBody"));
