@@ -1,5 +1,6 @@
-// Offline support: serve the app shell from cache, refresh it in the background.
-const CACHE = "gym-tracker-v1";
+// Offline support: always try the network first so updates show up right away,
+// fall back to the cached copy when there's no connection.
+const CACHE = "gym-tracker-v2";
 const FILES = ["./", "index.html", "styles.css", "data.js", "app.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -11,12 +12,9 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   e.respondWith(
-    caches.match(e.request).then((hit) => {
-      const net = fetch(e.request).then((res) => {
-        if (res.ok) caches.open(CACHE).then((c) => c.put(e.request, res.clone()));
-        return res;
-      }).catch(() => hit);
-      return hit || net;
-    })
+    fetch(e.request).then((res) => {
+      if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); }
+      return res;
+    }).catch(() => caches.match(e.request))
   );
 });

@@ -15,7 +15,9 @@
       exercises: clone(d.exercises),
       log: [],       // food entries
       runs: {},      // date -> km
-      workouts: []   // exercise entries
+      weights: {},   // date -> body weight kg
+      workouts: [],  // exercise entries
+      plan: clone(d.plan)
     }, saved || {});
   }
   let S = load();
@@ -71,7 +73,9 @@
     const b = e.target.closest("[data-step]"); if (!b) return;
     const input = document.getElementById(b.dataset.target); if (!input) return;
     const step = num(input.step, 1) || 1;
-    const v = Math.max(num(input.min, 0), r1(num(input.value) + num(b.dataset.step) * step));
+    // An empty field starts from its base value (e.g. last body weight) instead of 0
+    const cur = input.value === "" && input.dataset.base ? num(input.dataset.base) - num(b.dataset.step) * step : num(input.value);
+    const v = Math.max(num(input.min, 0), r1(cur + num(b.dataset.step) * step));
     input.value = v; input.dispatchEvent(new Event("input", { bubbles: true }));
   });
   const stepper = (id, value, step, cls = "") =>
@@ -86,6 +90,22 @@
     return t;
   }
   const kcalTarget = (date) => S.targets.kcal + num(S.runs[date]) * S.targets.kcalPerKm;
+
+  // ---------- Body weight + plan helpers ----------
+  function weightOnOrBefore(date) {
+    const ds = Object.keys(S.weights).filter((d) => d <= date).sort();
+    return ds.length ? S.weights[ds[ds.length - 1]] : null;
+  }
+  const mondayOf = (s) => { const d = new Date(s + "T12:00:00"); return addDays(s, -((d.getDay() + 6) % 7)); };
+  const daysBetween = (a, b) => Math.round((new Date(b + "T12:00:00") - new Date(a + "T12:00:00")) / 86400000);
+  const planWeek = (date) => Math.floor(daysBetween(S.plan.start, date) / 7) + 1;   // may be < 1 or > 4
+  function planFor(ex, date) {
+    const it = S.plan.items[ex], wk = planWeek(date);
+    if (!it || wk < 1 || wk > 4) return null;
+    return { week: wk, weight: it.w[wk - 1], sets: it.sets, reps: it.reps };
+  }
+  const weekRange = (wk) => [addDays(S.plan.start, (wk - 1) * 7), addDays(S.plan.start, wk * 7 - 1)];
+  const inRange = (d, [a, b]) => d >= a && d <= b;
 
   // ---------- Food view ----------
   function renderToday() {
@@ -105,6 +125,10 @@
     }).join("");
 
     const run = $("#runKm"); if (document.activeElement !== run) run.value = num(S.runs[current]);
+    const bw = $("#bodyWeight"), lastBw = weightOnOrBefore(addDays(current, -1));
+    if (document.activeElement !== bw) bw.value = S.weights[current] ?? "";
+    bw.dataset.base = lastBw ?? 63;
+    bw.placeholder = lastBw ? String(lastBw) : "–";
 
     const entries = S.log.filter((e) => e.date === current);
     $("#mealEmpty").style.display = entries.length ? "none" : "block";
@@ -124,6 +148,11 @@
     const v = num(e.target.value);
     if (v > 0) S.runs[current] = v; else delete S.runs[current];
     save(); renderToday();
+  });
+  $("#bodyWeight").addEventListener("input", (e) => {
+    const v = num(e.target.value);
+    if (v > 0) S.weights[current] = r1(v); else delete S.weights[current];
+    save();
   });
   $("#mealList").addEventListener("click", (e) => {
     const it = e.target.closest("[data-edit]"); if (it) editEntry(it.dataset.edit);
@@ -257,7 +286,14 @@
     $("#splitSeg").innerHTML = sp.map((s) => `<button class="${s === split ? "on" : ""}" data-split="${esc(s)}">${esc(s)}</button>`).join("");
     const doneToday = new Set(S.workouts.filter((w) => w.date === current).map((w) => w.exercise));
     $("#exerciseChips").innerHTML = S.exercises.filter((e) => (e.split || "Other") === split)
-      .map((e) => `<button class="chip ${doneToday.has(e.name) ? "on" : ""}" data-ex="${esc(e.name)}">${doneToday.has(e.name) ? "✓ " : ""}${esc(e.name)}</button>`).join("");
+      .map((e) => {
+        const pl = planFor(e.name, current);
+        return `<button class="chip ${doneToday.has(e.name) ? "on" : ""}" data-ex="${esc(e.name)}">${doneToday.has(e.name) ? "✓ " : ""}${esc(e.name)}${pl ? `<small>${r1(pl.weight)}</small>` : ""}</button>`;
+      }).join("");
+    const wk = planWeek(current);
+    $("#planStrip").innerHTML = wk >= 1 && wk <= 4
+      ? `Plan <b>week ${wk} of 4</b>. Numbers on the buttons are this week's planned kg.`
+      : wk < 1 ? "Your plan hasn't started yet on this day." : "Your 4-week plan is finished. Start the next block in the Plan tab.";
 
     const list = S.workouts.filter((w) => w.date === current);
     $("#workoutEmpty").style.display = list.length ? "none" : "block";
@@ -281,15 +317,17 @@
 
   function workoutSheet(ex, entry) {
     const last = lastFor(ex, entry ? entry.date : current);
-    const base = entry || last || { sets: 3, reps: 10, weight: 20 };
-    let weight = base.weight;
-    if (!entry && last && last.next === "↑") weight = r1(last.weight + 2.5);
-    if (!entry && last && last.next === "↓") weight = Math.max(0, r1(last.weight - 2.5));
-    const best = bestFor(ex);
-    const info = last
-      ? `Last time (${pretty(last.date)}): <b>${last.sets} × ${last.reps} @ ${r1(last.weight)} kg</b>${last.next ? " " + esc(last.next) : ""}${best ? ` · Best ${r1(best)} kg` : ""}` +
-        (!entry && last.next === "↑" ? `<br>You marked ↑ so the weight is already raised by 2.5 kg.` : "")
-      : "First time logging this exercise.";
+    const pl = planFor(ex, entry ? entry.date : current);
+    const base = entry || (pl && { sets: pl.sets, reps: pl.reps, weight: pl.weight }) || last || { sets: 3, reps: 10, weight: 20 };
+    let weight = base.weight, raised = false;
+    if (!entry && last && last.next === "↑" && last.weight + 2.5 > weight) { weight = r1(last.weight + 2.5); raised = true; }
+    if (!entry && !pl && last && last.next === "↓") weight = Math.max(0, r1(last.weight - 2.5));
+    const best = Math.max(bestFor(ex), (S.plan.items[ex] || {}).best || 0);
+    const info = (pl ? `Plan, week ${pl.week}: <b>${pl.sets} × ${pl.reps} @ ${r1(pl.weight)} kg</b><br>` : "") +
+      (last
+        ? `Last time (${pretty(last.date)}): ${last.sets} × ${last.reps} @ ${r1(last.weight)} kg${last.next ? " " + esc(last.next) : ""}${best ? ` · Best ${r1(best)} kg` : ""}` +
+          (raised ? `<br>You marked ↑ last time, so it's set 2.5 kg above that.` : "")
+        : `First time logging this exercise here.${best ? ` Best ${r1(best)} kg.` : ""}`);
     const nexts = [["↑", "Go up"], ["=", "Same"], ["↓", "Go down"], [":/", "Bad day"]];
     openSheet(
       `<h3>${esc(ex)}</h3><div class="last-info">${info}</div>` +
@@ -325,7 +363,32 @@
   }
 
   // ---------- History ----------
+  function renderWeight() {
+    const ds = Object.keys(S.weights).sort();
+    if (!ds.length) { $("#historyWeight").innerHTML = `<p class="muted" style="margin:0">Enter your weight on the Food tab (⚖️ row) 3–4 mornings a week and your weekly trend shows up here.</p>`; return; }
+    const weeks = {};
+    ds.forEach((d) => (weeks[mondayOf(d)] = weeks[mondayOf(d)] || []).push(S.weights[d]));
+    const wk = Object.keys(weeks).sort().map((m) => ({ m, avg: weeks[m].reduce((a, b) => a + b, 0) / weeks[m].length, n: weeks[m].length }));
+    const latest = S.weights[ds[ds.length - 1]];
+    let trend = "";
+    if (wk.length >= 2) {
+      const ch = wk[wk.length - 1].avg - wk[wk.length - 2].avg;
+      trend = ch < 0.2 ? `Below the goal of +0.3–0.5 kg a week (${ch >= 0 ? "+" : ""}${r1(ch)} kg vs last week).`
+        : ch <= 0.6 ? `On track: ${"+" + r1(ch)} kg vs last week.` : `Faster than planned (+${r1(ch)} kg). Fine early on (creatine water), otherwise eat a bit less.`;
+      if (wk.length >= 3 && wk[wk.length - 1].avg - wk[wk.length - 3].avg < 0.2) trend += ` <b>Flat for 2 weeks: add 200–300 kcal</b> in Settings.`;
+    } else trend = "Log a second week to see your weekly change.";
+    $("#historyWeight").innerHTML =
+      `<div class="plan-head"><div><div class="big">${r1(latest)} kg</div><div class="muted">latest, ${pretty(ds[ds.length - 1], true)}</div></div>` +
+      `<div style="text-align:right"><b>${r1(wk[wk.length - 1].avg)} kg</b><div class="muted">this week's average</div></div></div>` +
+      spark(ds.slice(-60).map((d) => S.weights[d])) + `<div class="trend">${trend}</div>` +
+      wk.slice(-8).reverse().map((w, i, arr) => {
+        const prev = arr[i + 1], ch = prev ? w.avg - prev.avg : null;
+        return `<div class="wk-row"><span>Week of ${pretty(w.m, true)}</span><span class="muted">${w.n}×</span><b>${r1(w.avg)} kg${ch !== null ? ` <span class="muted">${ch >= 0 ? "+" : ""}${r1(ch)}</span>` : ""}</b></div>`;
+      }).join("");
+  }
+
   function renderHistory() {
+    renderWeight();
     const t = today(), rows = [];
     for (let i = 0; i < 14; i++) {
       const d = addDays(t, -i), tot = dayTotals(d), goal = kcalTarget(d), p = goal ? (tot.kcal / goal) * 100 : 0;
@@ -356,6 +419,84 @@
     const pts = vals.map((v, i) => `${(i / (vals.length - 1)) * W},${H - 6 - ((v - min) / span) * (H - 12)}`).join(" ");
     return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>`;
   }
+
+  // ---------- Plan ----------
+  function renderPlan() {
+    const t = today(), wk = planWeek(t);
+    const shownWk = Math.min(4, Math.max(1, wk));
+    const [a, b] = weekRange(shownWk);
+    const status = wk < 1 ? `Starts ${pretty(S.plan.start, true)}` : wk > 4 ? "Finished" : `${pretty(a)} – ${pretty(b)}`;
+    const sessions = Object.entries(S.plan.days).map(([sp, n]) => {
+      const done = new Set(S.workouts.filter((w) => w.split === sp && inRange(w.date, [a, b])).map((w) => w.date)).size;
+      return `<span>${esc(sp)} ${Math.min(done, n)}/${n}<span class="dots">${Array.from({ length: n }, (_, i) => `<i class="${i < done ? "on" : ""}"></i>`).join("")}</span></span>`;
+    }).join("");
+    $("#planHead").innerHTML = `<div class="plan-head"><div class="big">${wk > 4 ? "Plan done 🎉" : `Week ${shownWk} of 4`}</div><span class="muted">${status}</span></div>` +
+      `<div class="sessions">${sessions}</div>` +
+      (wk > 4 ? `<p class="muted" style="margin:12px 0 0">Tap “Start the next 4 weeks” below to build a new block from what you lifted.</p>` : "");
+
+    const names = Object.keys(S.plan.items);
+    const bySplit = {};
+    names.forEach((n) => { const sp = (S.exercises.find((e) => e.name === n) || {}).split || "Other"; (bySplit[sp] = bySplit[sp] || []).push(n); });
+    $("#planTables").innerHTML = Object.keys(bySplit).map((sp) => {
+      const list = bySplit[sp];
+      const head = `<div class="hd ex">${esc(sp)} · kg</div>` + [1, 2, 3, 4].map((i) => `<div class="hd ${i === wk ? "cur" : ""}">W${i}</div>`).join("");
+      const rows = list.map((n, ri) => {
+        const it = S.plan.items[n], last = ri === list.length - 1 ? " row-last" : "";
+        const cells = it.w.map((w, i) => {
+          const hit = S.workouts.some((x) => x.exercise === n && inRange(x.date, weekRange(i + 1)) && x.weight >= w);
+          return `<div class="${i + 1 === wk ? "cur" : ""}${hit ? " hit" : ""}${last}" data-plan-ex="${esc(n)}">${hit ? "✓" : ""}${r1(w)}</div>`;
+        }).join("");
+        return `<div class="ex${last}" data-plan-ex="${esc(n)}">${esc(n)}<small>${it.sets} × ${it.reps}${it.best ? ` · best ${r1(it.best)}` : ""}</small></div>${cells}`;
+      }).join("");
+      return `<div class="card"><div class="plan-grid">${head}${rows}</div></div>`;
+    }).join("") + `<p class="muted small-note">✓ = you lifted at least the planned weight that week. Tap a row to change it.</p>`;
+
+    $("#planStart").value = S.plan.start;
+    $$("[data-days]").forEach((i) => (i.value = S.plan.days[i.dataset.days] ?? 0));
+  }
+  $("#planTables").addEventListener("click", (e) => { const c = e.target.closest("[data-plan-ex]"); if (c) planItemSheet(c.dataset.planEx); });
+  $("#planStart").addEventListener("change", (e) => { if (e.target.value) { S.plan.start = e.target.value; save(); renderPlan(); toast("Start date saved"); } });
+  document.addEventListener("change", (e) => {
+    const k = e.target.dataset && e.target.dataset.days; if (!k) return;
+    S.plan.days[k] = Math.max(0, r0(num(e.target.value))); save(); renderPlan();
+  });
+
+  function planItemSheet(ex) {
+    const it = S.plan.items[ex] || { best: bestFor(ex), w: [20, 20, 22.5, 22.5], sets: 3, reps: 10 };
+    const isNew = !S.plan.items[ex];
+    openSheet(`<h3>${esc(ex)}</h3>` +
+      `<div class="row3">${it.w.map((w, i) => `<div class="field"><label>Week ${i + 1} (kg)</label>${stepper("pw" + i, w, 2.5, "small")}</div>`).join("")}</div>` +
+      `<div class="row3"><div class="field"><label>Sets</label>${stepper("pSets", it.sets, 1, "small")}</div><div class="field"><label>Reps</label>${stepper("pReps", it.reps, 1, "small")}</div></div>` +
+      `<button class="btn full" id="savePI">${isNew ? "Add to plan" : "Save"}</button>` +
+      (isNew ? "" : `<button class="btn danger full" id="delPI">Remove from plan</button>`), (root) => {
+      $("#savePI", root).addEventListener("click", () => {
+        S.plan.items[ex] = { best: it.best || 0, w: [0, 1, 2, 3].map((i) => r1(num($("#pw" + i).value))), sets: r0(num($("#pSets").value)), reps: r0(num($("#pReps").value)) };
+        save(); closeSheet(); render(); toast("Plan updated");
+      });
+      if (!isNew) $("#delPI", root).addEventListener("click", () => { delete S.plan.items[ex]; save(); closeSheet(); render(); toast("Removed from plan"); });
+    });
+  }
+  $("#planAddEx").addEventListener("click", () => {
+    const free = S.exercises.filter((e) => !S.plan.items[e.name]);
+    if (!free.length) return toast("Every exercise is already in the plan");
+    openSheet(`<h3>Add to plan</h3>${free.map((e) => `<button class="pick" data-add-plan="${esc(e.name)}"><span>${esc(e.name)}</span><small>${esc(e.split || "")}</small></button>`).join("")}`,
+      (root) => root.addEventListener("click", (e) => { const b = e.target.closest("[data-add-plan]"); if (b) planItemSheet(b.dataset.addPlan); }));
+  });
+  const roundHalf = (n) => Math.round(n * 2) / 2;
+  $("#planNext").addEventListener("click", () => {
+    if (!confirm("Start a new 4-week block? Weeks 1–2 use the most you lifted in the last block, weeks 3–4 add about 10%.")) return;
+    const oldStart = S.plan.start, oldEnd = addDays(oldStart, 27);
+    Object.entries(S.plan.items).forEach(([n, it]) => {
+      const lifts = S.workouts.filter((w) => w.exercise === n && w.date >= oldStart && w.date <= oldEnd).map((w) => w.weight);
+      const base = lifts.length ? Math.max(...lifts) : it.w[3];
+      const up = Math.max(base + 2.5, roundHalf(base * 1.1));
+      it.best = Math.max(it.best || 0, bestFor(n));
+      it.w = [base, base, up, up].map(r1);
+    });
+    const next = mondayOf(addDays(oldStart, 28));
+    S.plan.start = next > today() ? next : mondayOf(today());
+    save(); renderPlan(); toast("New 4-week block ready");
+  });
 
   // ---------- Settings ----------
   function renderSettings() {
@@ -424,7 +565,8 @@
     const wo = [["type", "date", "split", "exercise", "sets", "reps", "weight_kg", "next", "note"].join(",")]
       .concat(S.workouts.map((w) => ["workout", w.date, q(w.split), q(w.exercise), w.sets, w.reps, w.weight, q(w.next), q(w.note)].join(",")));
     const runs = ["type,date,km"].concat(Object.entries(S.runs).map(([d, k]) => `run,${d},${k}`));
-    download(`gym-tracker-${today()}.csv`, meals.concat([""], wo, [""], runs).join("\n"), "text/csv");
+    const bw = ["type,date,kg"].concat(Object.entries(S.weights).sort().map(([d, k]) => `bodyweight,${d},${k}`));
+    download(`gym-tracker-${today()}.csv`, meals.concat([""], wo, [""], runs, [""], bw).join("\n"), "text/csv");
   });
   $("#importJson").addEventListener("change", async (e) => {
     const file = e.target.files[0]; if (!file) return;
@@ -443,7 +585,7 @@
     $$(".view").forEach((s) => s.classList.toggle("active", s.id === "view-" + v));
     $$(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.view === v));
     const fab = $("#fab");
-    fab.classList.toggle("hidden", v === "history" || v === "settings");
+    fab.classList.toggle("hidden", v === "history" || v === "settings" || v === "plan");
     fab.textContent = v === "workout" ? "+ Exercise" : "+ Food";
     window.scrollTo(0, 0);
     render();
@@ -467,9 +609,11 @@
 
   function render() {
     $("#dateLabel").textContent = pretty(current, true);
-    $(".top").style.display = view === "history" || view === "settings" ? "none" : "flex";
+    $(".top").style.display = view === "today" || view === "workout" ? "flex" : "none";
+    document.body.classList.toggle("no-top", !(view === "today" || view === "workout"));
     if (view === "today") renderToday();
     if (view === "workout") renderWorkout();
+    if (view === "plan") renderPlan();
     if (view === "history") renderHistory();
     if (view === "settings") renderSettings();
   }
@@ -479,6 +623,9 @@
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && today() !== lastSeen) { if (current === lastSeen) current = today(); lastSeen = today(); render(); }
   });
+
+  if (!S.plan || !S.plan.items) S.plan = clone(window.DEFAULTS.plan);
+  if (!S.plan.start) { S.plan.start = mondayOf(today()); save(); }
 
   if ("serviceWorker" in navigator && location.protocol === "https:") {
     navigator.serviceWorker.register("sw.js").catch(() => {});

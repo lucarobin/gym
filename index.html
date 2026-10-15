@@ -42,6 +42,15 @@
           </div>
           <span class="muted">km</span>
         </div>
+        <div class="run-row">
+          <label for="bodyWeight">⚖️ Body weight</label>
+          <div class="stepper small">
+            <button data-step="-1" data-target="bodyWeight">−</button>
+            <input id="bodyWeight" type="number" inputmode="decimal" min="0" step="0.1" placeholder="–">
+            <button data-step="1" data-target="bodyWeight">+</button>
+          </div>
+          <span class="muted">kg</span>
+        </div>
       </div>
 
       <div id="mealList"></div>
@@ -51,13 +60,31 @@
     <!-- WORKOUT -->
     <section id="view-workout" class="view">
       <div class="seg" id="splitSeg"></div>
+      <div class="plan-strip muted" id="planStrip"></div>
       <div class="chips" id="exerciseChips"></div>
       <div id="workoutList"></div>
       <p class="empty" id="workoutEmpty">No exercises logged on this day. Tap an exercise above.</p>
     </section>
 
+    <!-- PLAN -->
+    <section id="view-plan" class="view">
+      <div class="card" id="planHead"></div>
+      <div id="planTables"></div>
+      <button class="btn ghost full" id="planAddEx">+ Add an exercise to the plan</button>
+      <h2>Adjust the plan</h2>
+      <div class="card stack">
+        <p class="muted">Tap any exercise above to change its weights, sets or reps. When the 4 weeks are over, start the next block from what you actually lifted.</p>
+        <label class="form-row"><span>Plan started on</span><input class="text-in" type="date" id="planStart" style="width:170px"></label>
+        <label class="form-row"><span>Upper sessions per week</span><input class="text-in" type="number" inputmode="numeric" data-days="Upper" style="width:80px"></label>
+        <label class="form-row"><span>Lower sessions per week</span><input class="text-in" type="number" inputmode="numeric" data-days="Lower" style="width:80px"></label>
+        <button class="btn full" id="planNext">Start the next 4 weeks</button>
+      </div>
+    </section>
+
     <!-- HISTORY -->
     <section id="view-history" class="view">
+      <h2>Body weight</h2>
+      <div class="card" id="historyWeight"></div>
       <h2>Last 14 days</h2>
       <div class="card" id="historyDays"></div>
       <h2>Progress per exercise</h2>
@@ -82,7 +109,7 @@
       <div class="card stack">
         <p class="muted">Your data lives only on this phone, in this browser. Export a backup now and then.</p>
         <button class="btn full" id="exportJson">Export backup (.json)</button>
-        <button class="btn ghost full" id="exportCsv">Export meals & workouts (.csv)</button>
+        <button class="btn ghost full" id="exportCsv">Export everything (.csv)</button>
         <label class="btn ghost full">Import backup<input type="file" id="importJson" accept="application/json" hidden></label>
       </div>
     </section>
@@ -93,6 +120,7 @@
   <nav class="tabs">
     <button data-view="today" class="active"><span>🍽️</span>Food</button>
     <button data-view="workout"><span>🏋️</span>Workout</button>
+    <button data-view="plan"><span>📋</span>Plan</button>
     <button data-view="history"><span>📈</span>History</button>
     <button data-view="settings"><span>⚙️</span>Settings</button>
   </nav>

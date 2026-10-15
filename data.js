@@ -47,5 +47,24 @@ window.DEFAULTS = {
     { name: "Leg Curl", split: "Lower" },
     { name: "Leg Extension", split: "Lower" }
   ],
+  // 4-week plan from your table: weeks 1–2 start weight, weeks 3–4 target.
+  // "best" is your best so far. Start date is set to the Monday of the week you first open the app.
+  plan: {
+    start: "",
+    days: { Upper: 2, Lower: 2 },
+    items: {
+      "Chest Press":   { best: 47.3, w: [27, 27, 36, 36], sets: 3, reps: 10 },
+      "Arm Curl":      { best: 36,   w: [22.5, 22.5, 27, 27], sets: 3, reps: 10 },
+      "Overhead":      { best: 36,   w: [22.5, 22.5, 27, 27], sets: 3, reps: 10 },
+      "Pulldown":      { best: 50,   w: [31.5, 31.5, 38.3, 38.3], sets: 3, reps: 10 },
+      "Row":           { best: 60,   w: [36, 36, 45, 45], sets: 3, reps: 10 },
+      "Cable (obe)":   { best: 17.5, w: [10, 12.5, 15, 15], sets: 3, reps: 10 },
+      "Hip outer":     { best: 40,   w: [24.8, 24.8, 31.5, 31.5], sets: 3, reps: 10 },
+      "Hip inner":     { best: 56.3, w: [33.8, 33.8, 42.8, 42.8], sets: 3, reps: 10 },
+      "Leg Press":     { best: 76.5, w: [45, 47, 60, 60], sets: 3, reps: 10 },
+      "Leg Curl":      { best: 54,   w: [31.5, 31.5, 40.5, 40.5], sets: 3, reps: 10 },
+      "Leg Extension": { best: 60.8, w: [36, 36, 47.3, 47.3], sets: 3, reps: 10 }
+    }
+  },
   meals: ["Breakfast", "Lunch", "Snack", "Pre-workout", "Post-workout", "Dinner"]
 };
