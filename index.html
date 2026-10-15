@@ -14,13 +14,15 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="top">
+  <header class="top" id="top">
+    <h1 class="page-title" id="pageTitle"></h1>
     <button class="icon-btn" id="prevDay" aria-label="Previous day">‹</button>
     <button class="date-btn" id="dateBtn"><span id="dateLabel">Today</span></button>
     <input type="date" id="dateInput" class="visually-hidden" tabindex="-1">
     <button class="icon-btn" id="nextDay" aria-label="Next day">›</button>
   </header>
 
+  <div id="scroller">
   <main>
     <!-- TODAY -->
     <section id="view-today" class="view active">
@@ -114,6 +116,7 @@
       </div>
     </section>
   </main>
+  </div>
 
   <button class="fab" id="fab">+ Food</button>
 

@@ -64,7 +64,7 @@
     old.replaceWith(body);
     body.innerHTML = html;
     $("#sheet").classList.add("open"); $("#backdrop").classList.add("open");
-    $("#sheet").scrollTop = 0;
+    body.scrollTop = 0;
     if (onMount) onMount($("#sheetBody"));
   }
   function closeSheet() { $("#sheet").classList.remove("open"); $("#backdrop").classList.remove("open"); }
@@ -590,7 +590,7 @@
     const fab = $("#fab");
     fab.classList.toggle("hidden", v === "history" || v === "settings" || v === "plan");
     fab.textContent = v === "workout" ? "+ Exercise" : "+ Food";
-    window.scrollTo(0, 0);
+    $("#scroller").scrollTop = 0;
     render();
   }
   $$(".tabs button").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
@@ -612,8 +612,9 @@
 
   function render() {
     $("#dateLabel").textContent = pretty(current, true);
-    $(".top").style.display = view === "today" || view === "workout" ? "flex" : "none";
-    document.body.classList.toggle("no-top", !(view === "today" || view === "workout"));
+    const titled = !(view === "today" || view === "workout");
+    $("#top").classList.toggle("titled", titled);
+    $("#pageTitle").textContent = { plan: "Plan", history: "History", settings: "Settings" }[view] || "";
     if (view === "today") renderToday();
     if (view === "workout") renderWorkout();
     if (view === "plan") renderPlan();
