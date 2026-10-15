@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Gym">
+  <title>Gym Tracker</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <button class="icon-btn" id="prevDay" aria-label="Previous day">‹</button>
+    <button class="date-btn" id="dateBtn"><span id="dateLabel">Today</span></button>
+    <input type="date" id="dateInput" class="visually-hidden" tabindex="-1">
+    <button class="icon-btn" id="nextDay" aria-label="Next day">›</button>
+  </header>
+
+  <main>
+    <!-- TODAY -->
+    <section id="view-today" class="view active">
+      <div class="card">
+        <div class="kcal-row">
+          <div>
+            <div class="big" id="kcalLeft">0</div>
+            <div class="muted" id="kcalLeftLabel">kcal left</div>
+          </div>
+          <div class="ring" id="kcalRing"><span id="kcalPct">0%</span></div>
+        </div>
+        <div class="bars" id="macroBars"></div>
+        <div class="run-row">
+          <label for="runKm">🏃 Ran today</label>
+          <div class="stepper small">
+            <button data-step="-1" data-target="runKm">−</button>
+            <input id="runKm" type="number" inputmode="decimal" min="0" step="0.5" value="0">
+            <button data-step="1" data-target="runKm">+</button>
+          </div>
+          <span class="muted">km</span>
+        </div>
+      </div>
+
+      <div id="mealList"></div>
+      <p class="empty" id="mealEmpty">Nothing logged yet. Tap <b>+ Food</b> to start.</p>
+    </section>
+
+    <!-- WORKOUT -->
+    <section id="view-workout" class="view">
+      <div class="seg" id="splitSeg"></div>
+      <div class="chips" id="exerciseChips"></div>
+      <div id="workoutList"></div>
+      <p class="empty" id="workoutEmpty">No exercises logged on this day. Tap an exercise above.</p>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="view-history" class="view">
+      <h2>Last 14 days</h2>
+      <div class="card" id="historyDays"></div>
+      <h2>Progress per exercise</h2>
+      <div id="historyExercises"></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="view-settings" class="view">
+      <h2>Daily targets</h2>
+      <div class="card form" id="targetsForm"></div>
+      <p class="muted small-note">From your Bulking Plan. If your weekly average weight stays flat for 2 weeks, add 200–300 kcal.</p>
+
+      <h2>My foods</h2>
+      <div class="card" id="foodsList"></div>
+      <button class="btn ghost full" id="addFoodDef">+ Add a food</button>
+
+      <h2>My exercises</h2>
+      <div class="card" id="exList"></div>
+      <button class="btn ghost full" id="addExDef">+ Add an exercise</button>
+
+      <h2>Backup</h2>
+      <div class="card stack">
+        <p class="muted">Your data lives only on this phone, in this browser. Export a backup now and then.</p>
+        <button class="btn full" id="exportJson">Export backup (.json)</button>
+        <button class="btn ghost full" id="exportCsv">Export meals & workouts (.csv)</button>
+        <label class="btn ghost full">Import backup<input type="file" id="importJson" accept="application/json" hidden></label>
+      </div>
+    </section>
+  </main>
+
+  <button class="fab" id="fab">+ Food</button>
+
+  <nav class="tabs">
+    <button data-view="today" class="active"><span>🍽️</span>Food</button>
+    <button data-view="workout"><span>🏋️</span>Workout</button>
+    <button data-view="history"><span>📈</span>History</button>
+    <button data-view="settings"><span>⚙️</span>Settings</button>
+  </nav>
+
+  <!-- Bottom sheet -->
+  <div class="sheet-backdrop" id="backdrop"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true">
+    <div class="sheet-handle"></div>
+    <button class="sheet-close" id="sheetClose" aria-label="Close">✕</button>
+    <div id="sheetBody"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
